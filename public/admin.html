@@ -122,6 +122,20 @@
 
             <form id="email-form">
                 <div class="form-group">
+                    <label>Recipients</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="select-all-users" onchange="toggleAllUsers(this)">
+                            <span>Select All Users</span>
+                        </label>
+                        <span id="selected-count" style="color: var(--text-secondary); font-size: 12px;">0 selected</span>
+                    </div>
+                    <div id="user-list" style="max-height: 150px; overflow-y: auto; padding: 10px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; margin-bottom: 15px;">
+                        <p style="text-align: center; color: var(--text-secondary);">Loading users...</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label for="email-subject">Subject</label>
                     <input type="text" id="email-subject" required>
                 </div>
@@ -129,12 +143,6 @@
                 <div class="form-group">
                     <label for="email-message">Message (HTML supported)</label>
                     <textarea id="email-message" required rows="8"></textarea>
-                </div>
-
-                <div style="padding: 15px; background: rgba(255, 152, 0, 0.1); border-radius: 10px; margin-bottom: 20px;">
-                    <small style="color: var(--text-secondary);">
-                        This email will be sent to all registered users.
-                    </small>
                 </div>
 
                 <button type="submit" class="btn btn-primary">Send Email</button>

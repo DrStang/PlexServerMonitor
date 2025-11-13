@@ -58,7 +58,13 @@ function updateServerStatus(status) {
 
     if (status.checked_at) {
         const date = new Date(status.checked_at);
-        lastChecked.textContent = date.toLocaleTimeString();
+        const timeOptions = {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        };
+        lastChecked.textContent = date.toLocaleTimeString(undefined, timeOptions);
     }
 }
 

@@ -64,7 +64,13 @@ function updateServerStatus(status) {
 
     if (status.checked_at) {
         const date = new Date(status.checked_at);
-        lastChecked.textContent = date.toLocaleTimeString();
+        const timeOptions = {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        };
+        lastChecked.textContent = date.toLocaleTimeString(undefined, timeOptions);
     }
 }
 
@@ -239,15 +245,75 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Load users for email modal
+async function loadUsersForEmail() {
+    try {
+        const response = await fetch('/api/admin/users');
+        if (response.ok) {
+            const users = await response.json();
+            displayUserList(users);
+        }
+    } catch (error) {
+        console.error('Error loading users:', error);
+    }
+}
+
+// Display user list with checkboxes
+function displayUserList(users) {
+    const userList = document.getElementById('user-list');
+
+    if (users.length === 0) {
+        userList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No users found</p>';
+        return;
+    }
+
+    userList.innerHTML = users.map(user => `
+        <label style="display: flex; align-items: center; gap: 8px; padding: 8px; cursor: pointer; border-radius: 6px; transition: background 0.2s;"
+               onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+               onmouseout="this.style.background='transparent'">
+            <input type="checkbox" class="user-checkbox" value="${user.id}" data-email="${escapeHtml(user.email)}" onchange="updateSelectedCount()">
+            <span>${escapeHtml(user.username)} <small style="color: var(--text-secondary);">(${escapeHtml(user.email)})</small></span>
+        </label>
+    `).join('');
+
+    updateSelectedCount();
+}
+
+// Toggle all users
+function toggleAllUsers(checkbox) {
+    const userCheckboxes = document.querySelectorAll('.user-checkbox');
+    userCheckboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    updateSelectedCount();
+}
+
+// Update selected count
+function updateSelectedCount() {
+    const selectedCheckboxes = document.querySelectorAll('.user-checkbox:checked');
+    const count = selectedCheckboxes.length;
+    document.getElementById('selected-count').textContent = `${count} selected`;
+
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.user-checkbox');
+    const selectAllCheckbox = document.getElementById('select-all-users');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = allCheckboxes.length > 0 && count === allCheckboxes.length;
+    }
+}
+
 // Open email modal
 function openEmailModal() {
     document.getElementById('email-modal').classList.add('active');
+    loadUsersForEmail();
 }
 
 // Close email modal
 function closeEmailModal() {
     document.getElementById('email-modal').classList.remove('active');
     document.getElementById('email-form').reset();
+    document.getElementById('select-all-users').checked = false;
+    updateSelectedCount();
 }
 
 // Open update ticket modal
@@ -272,7 +338,17 @@ document.getElementById('email-form').addEventListener('submit', async (e) => {
     const subject = document.getElementById('email-subject').value;
     const message = document.getElementById('email-message').value;
 
-    if (!confirm('Are you sure you want to send this email to all users?')) {
+    // Get selected user IDs
+    const selectedCheckboxes = document.querySelectorAll('.user-checkbox:checked');
+    const userIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+
+    if (userIds.length === 0) {
+        showToast('Please select at least one user', 'error');
+        return;
+    }
+
+    const confirmMessage = `Are you sure you want to send this email to ${userIds.length} user${userIds.length > 1 ? 's' : ''}?`;
+    if (!confirm(confirmMessage)) {
         return;
     }
 
@@ -282,7 +358,7 @@ document.getElementById('email-form').addEventListener('submit', async (e) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ subject, message })
+            body: JSON.stringify({ subject, message, userIds })
         });
 
         const data = await response.json();

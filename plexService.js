@@ -69,8 +69,13 @@ class PlexService {
       let totalMedia = 0;
 
       // Sum up all media across libraries
+      // Plex API can return different field names depending on the setup
       libraries.forEach(lib => {
-        totalMedia += parseInt(lib.count) || 0;
+        const count = parseInt(lib.count) || parseInt(lib.totalSize) || 0;
+        totalMedia += count;
+        if (count > 0) {
+          console.log(`Library "${lib.title}": ${count} items`);
+        }
       });
 
       // Get accounts (users)

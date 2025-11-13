@@ -316,18 +316,29 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
 // Send mass email (admin only)
 app.post('/api/admin/email/mass', requireAdmin, async (req, res) => {
   try {
-    const { subject, message } = req.body;
+    const { subject, message, userIds } = req.body;
 
     if (!subject || !message) {
       return res.status(400).json({ error: 'Subject and message required' });
+    }
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: 'At least one user must be selected' });
     }
 
     if (!emailService.isConfigured()) {
       return res.status(500).json({ error: 'Email service not configured' });
     }
 
-    const users = await database.getAllUsers();
-    const results = await emailService.sendMassEmail(users, subject, message);
+    // Get all users and filter by selected IDs
+    const allUsers = await database.getAllUsers();
+    const selectedUsers = allUsers.filter(user => userIds.includes(user.id));
+
+    if (selectedUsers.length === 0) {
+      return res.status(400).json({ error: 'No valid users found' });
+    }
+
+    const results = await emailService.sendMassEmail(selectedUsers, subject, message);
 
     res.json({
       success: true,
