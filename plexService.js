@@ -68,14 +68,22 @@ class PlexService {
       const libraries = libResponse.data.MediaContainer?.Directory || [];
       let totalMedia = 0;
 
+      console.log(`Found ${libraries.length} libraries`);
+
       // Sum up all media across libraries
       // Plex API can return different field names depending on the setup
       libraries.forEach(lib => {
-        const count = parseInt(lib.count) || parseInt(lib.totalSize) || 0;
+        // Log all fields for debugging
+        console.log(`Library "${lib.title}":`, JSON.stringify({
+          key: lib.key,
+          type: lib.type,
+          count: lib.count,
+          totalSize: lib.totalSize,
+          size: lib.size
+        }));
+
+        const count = parseInt(lib.count) || parseInt(lib.totalSize) || parseInt(lib.size) || 0;
         totalMedia += count;
-        if (count > 0) {
-          console.log(`Library "${lib.title}": ${count} items`);
-        }
       });
 
       // Get accounts (users)

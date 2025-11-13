@@ -39,6 +39,8 @@ function initWebSocket() {
 
 // Update server status UI
 function updateServerStatus(status) {
+    console.log('Admin updating status:', status);
+
     const statusIndicator = document.getElementById('status-indicator');
     const statusText = document.getElementById('status-text');
     const activeStreams = document.getElementById('active-streams');
@@ -70,7 +72,9 @@ function updateServerStatus(status) {
             second: '2-digit',
             hour12: true
         };
-        lastChecked.textContent = date.toLocaleTimeString(undefined, timeOptions);
+        const formattedTime = date.toLocaleTimeString(undefined, timeOptions);
+        console.log('Admin time formatting:', { raw: status.checked_at, parsed: date, formatted: formattedTime });
+        lastChecked.textContent = formattedTime;
     }
 }
 
@@ -249,15 +253,21 @@ function escapeHtml(text) {
 async function loadUsersForEmail() {
     try {
         // Fetch Plex users instead of just database users
+        console.log('Fetching Plex users...');
         const response = await fetch('/api/admin/plex-users');
+        console.log('Plex users response status:', response.status);
+
         if (response.ok) {
             const plexUsers = await response.json();
+            console.log('Received Plex users:', plexUsers.length, plexUsers);
             displayUserList(plexUsers);
         } else {
+            console.log('Plex users fetch failed, trying database users...');
             // Fallback to database users if Plex API fails
             const fallbackResponse = await fetch('/api/admin/users');
             if (fallbackResponse.ok) {
                 const dbUsers = await fallbackResponse.json();
+                console.log('Received DB users:', dbUsers.length, dbUsers);
                 displayUserList(dbUsers);
             }
         }
@@ -271,31 +281,58 @@ async function loadUsersForEmail() {
 function displayUserList(users) {
     const userList = document.getElementById('user-list');
 
+    console.log('Displaying user list, total users:', users.length);
+
     if (users.length === 0) {
         userList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No users found</p>';
         return;
     }
 
-    // Filter users to only show those with email addresses
+    // Separate users with and without email
     const usersWithEmail = users.filter(user => user.email);
+    const usersWithoutEmail = users.filter(user => !user.email);
 
-    if (usersWithEmail.length === 0) {
-        userList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No users with email addresses found</p>';
+    console.log('Users with email:', usersWithEmail.length, 'Users without email:', usersWithoutEmail.length);
+
+    if (usersWithEmail.length === 0 && usersWithoutEmail.length === 0) {
+        userList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No users found</p>';
         return;
     }
 
-    userList.innerHTML = usersWithEmail.map(user => {
-        const userData = JSON.stringify({ email: user.email, username: user.username });
-        return `
-            <label style="display: flex; align-items: center; gap: 8px; padding: 8px; cursor: pointer; border-radius: 6px; transition: background 0.2s;"
-                   onmouseover="this.style.background='rgba(255,255,255,0.05)'"
-                   onmouseout="this.style.background='transparent'">
-                <input type="checkbox" class="user-checkbox" data-user='${escapeHtml(userData)}' onchange="updateSelectedCount()">
-                <span>${escapeHtml(user.username)} <small style="color: var(--text-secondary);">(${escapeHtml(user.email)})</small></span>
-            </label>
-        `;
-    }).join('');
+    let html = '';
 
+    // Show users with email (selectable)
+    if (usersWithEmail.length > 0) {
+        html += usersWithEmail.map(user => {
+            const userData = JSON.stringify({ email: user.email, username: user.username });
+            return `
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; cursor: pointer; border-radius: 6px; transition: background 0.2s;"
+                       onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                       onmouseout="this.style.background='transparent'">
+                    <input type="checkbox" class="user-checkbox" data-user='${escapeHtml(userData)}' onchange="updateSelectedCount()">
+                    <span>${escapeHtml(user.username)} <small style="color: var(--text-secondary);">(${escapeHtml(user.email)})</small></span>
+                </label>
+            `;
+        }).join('');
+    }
+
+    // Show users without email (non-selectable, grayed out)
+    if (usersWithoutEmail.length > 0) {
+        if (usersWithEmail.length > 0) {
+            html += '<hr style="border: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">';
+            html += '<p style="color: var(--text-secondary); font-size: 11px; margin-bottom: 5px;">Users without email (cannot send):</p>';
+        }
+        html += usersWithoutEmail.map(user => {
+            return `
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px; opacity: 0.5;">
+                    <input type="checkbox" disabled style="opacity: 0.3;">
+                    <span style="color: var(--text-secondary);">${escapeHtml(user.username)} <small>(no email)</small></span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    userList.innerHTML = html;
     updateSelectedCount();
 }
 

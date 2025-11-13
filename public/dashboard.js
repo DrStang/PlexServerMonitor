@@ -37,6 +37,8 @@ function initWebSocket() {
 
 // Update server status UI
 function updateServerStatus(status) {
+    console.log('Updating status:', status);
+
     const statusIndicator = document.getElementById('status-indicator');
     const statusText = document.getElementById('status-text');
     const activeStreams = document.getElementById('active-streams');
@@ -64,7 +66,9 @@ function updateServerStatus(status) {
             second: '2-digit',
             hour12: true
         };
-        lastChecked.textContent = date.toLocaleTimeString(undefined, timeOptions);
+        const formattedTime = date.toLocaleTimeString(undefined, timeOptions);
+        console.log('Time formatting:', { raw: status.checked_at, parsed: date, formatted: formattedTime });
+        lastChecked.textContent = formattedTime;
     }
 }
 
