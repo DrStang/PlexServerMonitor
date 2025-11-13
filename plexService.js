@@ -93,9 +93,13 @@ class PlexService {
                             parseInt(libDetailResponse.data.MediaContainer?.size) || 0;
 
           console.log(`Library "${lib.title}": ${librarySize} items`);
+
+          // Store the count on the library object for use in freshness tracking
+          lib.count = librarySize;
           totalMedia += librarySize;
         } catch (libError) {
           console.error(`Error getting count for library "${lib.title}":`, libError.message);
+          lib.count = 0;
         }
       }
 
