@@ -396,6 +396,8 @@ async function checkServerStatus() {
   try {
     const status = await plexService.checkServerStatus();
 
+    console.log(`Status check: Online=${status.isOnline}, Media=${status.totalMedia}, Libs=${status.totalLibraries}, Users=${status.totalUsers}`);
+
     await database.addServerStatus(
       status.isOnline,
       status.activeStreams,
@@ -406,6 +408,7 @@ async function checkServerStatus() {
     );
 
     const latestStatus = await database.getLatestServerStatus();
+    console.log(`DB status: Media=${latestStatus.total_media}, Libs=${latestStatus.total_libraries}`);
     broadcastStatus(latestStatus);
   } catch (error) {
     console.error('Error in status check:', error);

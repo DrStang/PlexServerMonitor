@@ -207,21 +207,11 @@ class PlexService {
 
   async getPlexUsers() {
     try {
-      // Get users from plex.tv (friends/shared users)
-      const response = await axios.get('https://plex.tv/api/v2/shared_servers', {
-        headers: {
-          'X-Plex-Token': this.token,
-          'Accept': 'application/json'
-        },
-        timeout: 10000
-      });
-
-      const sharedServers = response.data || [];
       const users = [];
 
-      // Add server owner info
+      // Try to get users from local Plex server first
       try {
-        const ownerResponse = await axios.get('https://plex.tv/users/account', {
+        const localUsersResponse = await axios.get(`${this.serverUrl}/accounts`, {
           headers: {
             'X-Plex-Token': this.token,
             'Accept': 'application/json'
@@ -229,29 +219,69 @@ class PlexService {
           timeout: 10000
         });
 
-        if (ownerResponse.data) {
-          users.push({
-            id: ownerResponse.data.id,
-            username: ownerResponse.data.username || ownerResponse.data.title,
-            email: ownerResponse.data.email,
-            isOwner: true
-          });
-        }
-      } catch (error) {
-        console.log('Could not fetch owner info:', error.message);
+        const accounts = localUsersResponse.data.MediaContainer?.Account || [];
+        accounts.forEach(account => {
+          if (account.email || account.name) {
+            users.push({
+              id: account.id,
+              username: account.name || account.username || 'Unknown',
+              email: account.email || null,
+              isOwner: false
+            });
+          }
+        });
+        console.log(`Found ${users.length} users from local Plex server`);
+      } catch (localError) {
+        console.log('Could not fetch users from local server:', localError.message);
       }
 
-      // Add shared users
-      sharedServers.forEach(server => {
-        if (server.email || server.username) {
-          users.push({
-            id: server.id,
-            username: server.username || server.title || 'Unknown',
-            email: server.email || null,
-            isOwner: false
+      // If no users found locally, try plex.tv API
+      if (users.length === 0) {
+        try {
+          // Get server owner info
+          const ownerResponse = await axios.get('https://plex.tv/users/account', {
+            headers: {
+              'X-Plex-Token': this.token,
+              'Accept': 'application/json'
+            },
+            timeout: 10000
           });
+
+          if (ownerResponse.data) {
+            users.push({
+              id: ownerResponse.data.id,
+              username: ownerResponse.data.username || ownerResponse.data.title,
+              email: ownerResponse.data.email,
+              isOwner: true
+            });
+          }
+
+          // Get shared users
+          const sharedResponse = await axios.get('https://plex.tv/api/v2/shared_servers', {
+            headers: {
+              'X-Plex-Token': this.token,
+              'Accept': 'application/json'
+            },
+            timeout: 10000
+          });
+
+          const sharedServers = sharedResponse.data || [];
+          sharedServers.forEach(server => {
+            if (server.email || server.username) {
+              users.push({
+                id: server.id,
+                username: server.username || server.title || 'Unknown',
+                email: server.email || null,
+                isOwner: false
+              });
+            }
+          });
+
+          console.log(`Found ${users.length} users from plex.tv API`);
+        } catch (plexTvError) {
+          console.log('Could not fetch users from plex.tv:', plexTvError.message);
         }
-      });
+      }
 
       return users;
     } catch (error) {
