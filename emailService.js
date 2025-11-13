@@ -12,24 +12,43 @@ class EmailService {
       return;
     }
 
-    this.transporter = nodemailer.createTransporter({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT || 587,
-      secure: process.env.EMAIL_SECURE || false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-      }
-    });
+    try {
+      // Support both service-based (Gmail, etc) and custom SMTP configuration
+      const transportConfig = process.env.EMAIL_SERVICE
+        ? {
+            service: process.env.EMAIL_SERVICE,
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASSWORD
+            }
+          }
+        : {
+            host: process.env.EMAIL_HOST,
+            port: process.env.EMAIL_PORT || 587,
+            secure: process.env.EMAIL_SECURE === 'true' || false,
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASSWORD
+            }
+          };
 
-    // Verify connection
-    this.transporter.verify((error, success) => {
-      if (error) {
-        console.error('Email service verification failed:', error);
-      } else {
-        console.log('Email service is ready');
-      }
-    });
+      this.transporter = nodemailer.createTransporter(transportConfig);
+
+      // Verify connection
+      this.transporter.verify((error, success) => {
+        if (error) {
+          console.error('Email service verification failed:', error);
+          console.log('Email features will be disabled. You can still use all other features.');
+          this.transporter = null;
+        } else {
+          console.log('Email service is ready');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to initialize email service:', error.message);
+      console.log('Email features will be disabled. You can still use all other features.');
+      this.transporter = null;
+    }
   }
 
   async sendEmail(to, subject, html) {
