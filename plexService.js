@@ -95,6 +95,8 @@ class PlexService {
         console.log('Could not fetch user count:', error.message);
       }
 
+      console.log(`Total media count: ${totalMedia} across ${libraries.length} libraries`);
+
       return {
         totalLibraries: libraries.length,
         totalMedia,
@@ -200,6 +202,61 @@ class PlexService {
         success: false,
         error: error.response?.data?.error || error.message
       };
+    }
+  }
+
+  async getPlexUsers() {
+    try {
+      // Get users from plex.tv (friends/shared users)
+      const response = await axios.get('https://plex.tv/api/v2/shared_servers', {
+        headers: {
+          'X-Plex-Token': this.token,
+          'Accept': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      const sharedServers = response.data || [];
+      const users = [];
+
+      // Add server owner info
+      try {
+        const ownerResponse = await axios.get('https://plex.tv/users/account', {
+          headers: {
+            'X-Plex-Token': this.token,
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
+
+        if (ownerResponse.data) {
+          users.push({
+            id: ownerResponse.data.id,
+            username: ownerResponse.data.username || ownerResponse.data.title,
+            email: ownerResponse.data.email,
+            isOwner: true
+          });
+        }
+      } catch (error) {
+        console.log('Could not fetch owner info:', error.message);
+      }
+
+      // Add shared users
+      sharedServers.forEach(server => {
+        if (server.email || server.username) {
+          users.push({
+            id: server.id,
+            username: server.username || server.title || 'Unknown',
+            email: server.email || null,
+            isOwner: false
+          });
+        }
+      });
+
+      return users;
+    } catch (error) {
+      console.error('Error fetching Plex users:', error.message);
+      return [];
     }
   }
 

@@ -248,13 +248,22 @@ function escapeHtml(text) {
 // Load users for email modal
 async function loadUsersForEmail() {
     try {
-        const response = await fetch('/api/admin/users');
+        // Fetch Plex users instead of just database users
+        const response = await fetch('/api/admin/plex-users');
         if (response.ok) {
-            const users = await response.json();
-            displayUserList(users);
+            const plexUsers = await response.json();
+            displayUserList(plexUsers);
+        } else {
+            // Fallback to database users if Plex API fails
+            const fallbackResponse = await fetch('/api/admin/users');
+            if (fallbackResponse.ok) {
+                const dbUsers = await fallbackResponse.json();
+                displayUserList(dbUsers);
+            }
         }
     } catch (error) {
         console.error('Error loading users:', error);
+        showToast('Failed to load user list', 'error');
     }
 }
 
@@ -267,14 +276,25 @@ function displayUserList(users) {
         return;
     }
 
-    userList.innerHTML = users.map(user => `
-        <label style="display: flex; align-items: center; gap: 8px; padding: 8px; cursor: pointer; border-radius: 6px; transition: background 0.2s;"
-               onmouseover="this.style.background='rgba(255,255,255,0.05)'"
-               onmouseout="this.style.background='transparent'">
-            <input type="checkbox" class="user-checkbox" value="${user.id}" data-email="${escapeHtml(user.email)}" onchange="updateSelectedCount()">
-            <span>${escapeHtml(user.username)} <small style="color: var(--text-secondary);">(${escapeHtml(user.email)})</small></span>
-        </label>
-    `).join('');
+    // Filter users to only show those with email addresses
+    const usersWithEmail = users.filter(user => user.email);
+
+    if (usersWithEmail.length === 0) {
+        userList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No users with email addresses found</p>';
+        return;
+    }
+
+    userList.innerHTML = usersWithEmail.map(user => {
+        const userData = JSON.stringify({ email: user.email, username: user.username });
+        return `
+            <label style="display: flex; align-items: center; gap: 8px; padding: 8px; cursor: pointer; border-radius: 6px; transition: background 0.2s;"
+                   onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                   onmouseout="this.style.background='transparent'">
+                <input type="checkbox" class="user-checkbox" data-user='${escapeHtml(userData)}' onchange="updateSelectedCount()">
+                <span>${escapeHtml(user.username)} <small style="color: var(--text-secondary);">(${escapeHtml(user.email)})</small></span>
+            </label>
+        `;
+    }).join('');
 
     updateSelectedCount();
 }
@@ -338,16 +358,23 @@ document.getElementById('email-form').addEventListener('submit', async (e) => {
     const subject = document.getElementById('email-subject').value;
     const message = document.getElementById('email-message').value;
 
-    // Get selected user IDs
+    // Get selected recipients
     const selectedCheckboxes = document.querySelectorAll('.user-checkbox:checked');
-    const userIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+    const recipients = Array.from(selectedCheckboxes).map(cb => {
+        try {
+            return JSON.parse(cb.dataset.user);
+        } catch (e) {
+            console.error('Error parsing user data:', e);
+            return null;
+        }
+    }).filter(r => r !== null);
 
-    if (userIds.length === 0) {
+    if (recipients.length === 0) {
         showToast('Please select at least one user', 'error');
         return;
     }
 
-    const confirmMessage = `Are you sure you want to send this email to ${userIds.length} user${userIds.length > 1 ? 's' : ''}?`;
+    const confirmMessage = `Are you sure you want to send this email to ${recipients.length} user${recipients.length > 1 ? 's' : ''}?`;
     if (!confirm(confirmMessage)) {
         return;
     }
@@ -358,7 +385,7 @@ document.getElementById('email-form').addEventListener('submit', async (e) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ subject, message, userIds })
+            body: JSON.stringify({ subject, message, recipients })
         });
 
         const data = await response.json();

@@ -313,32 +313,43 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
   }
 });
 
+// Get Plex users (admin only)
+app.get('/api/admin/plex-users', requireAdmin, async (req, res) => {
+  try {
+    const plexUsers = await plexService.getPlexUsers();
+    res.json(plexUsers);
+  } catch (error) {
+    console.error('Get Plex users error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Send mass email (admin only)
 app.post('/api/admin/email/mass', requireAdmin, async (req, res) => {
   try {
-    const { subject, message, userIds } = req.body;
+    const { subject, message, recipients } = req.body;
 
     if (!subject || !message) {
       return res.status(400).json({ error: 'Subject and message required' });
     }
 
-    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-      return res.status(400).json({ error: 'At least one user must be selected' });
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ error: 'At least one recipient must be selected' });
     }
 
     if (!emailService.isConfigured()) {
       return res.status(500).json({ error: 'Email service not configured' });
     }
 
-    // Get all users and filter by selected IDs
-    const allUsers = await database.getAllUsers();
-    const selectedUsers = allUsers.filter(user => userIds.includes(user.id));
+    // Recipients should be objects with { email, username } properties
+    // Filter out any without email addresses
+    const validRecipients = recipients.filter(r => r.email);
 
-    if (selectedUsers.length === 0) {
-      return res.status(400).json({ error: 'No valid users found' });
+    if (validRecipients.length === 0) {
+      return res.status(400).json({ error: 'No valid email addresses found' });
     }
 
-    const results = await emailService.sendMassEmail(selectedUsers, subject, message);
+    const results = await emailService.sendMassEmail(validRecipients, subject, message);
 
     res.json({
       success: true,
