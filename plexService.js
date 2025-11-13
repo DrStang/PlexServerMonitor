@@ -70,21 +70,34 @@ class PlexService {
 
       console.log(`Found ${libraries.length} libraries`);
 
-      // Sum up all media across libraries
-      // Plex API can return different field names depending on the setup
-      libraries.forEach(lib => {
-        // Log all fields for debugging
-        console.log(`Library "${lib.title}":`, JSON.stringify({
-          key: lib.key,
-          type: lib.type,
-          count: lib.count,
-          totalSize: lib.totalSize,
-          size: lib.size
-        }));
+      // The /library/sections endpoint doesn't return counts
+      // We need to query each library individually
+      for (const lib of libraries) {
+        try {
+          const libDetailResponse = await axios.get(
+            `${this.serverUrl}/library/sections/${lib.key}/all`,
+            {
+              headers: {
+                'X-Plex-Token': this.token,
+                'Accept': 'application/json'
+              },
+              params: {
+                'X-Plex-Container-Start': 0,
+                'X-Plex-Container-Size': 0  // Just get the total, not actual items
+              },
+              timeout: 10000
+            }
+          );
 
-        const count = parseInt(lib.count) || parseInt(lib.totalSize) || parseInt(lib.size) || 0;
-        totalMedia += count;
-      });
+          const librarySize = parseInt(libDetailResponse.data.MediaContainer?.totalSize) ||
+                            parseInt(libDetailResponse.data.MediaContainer?.size) || 0;
+
+          console.log(`Library "${lib.title}": ${librarySize} items`);
+          totalMedia += librarySize;
+        } catch (libError) {
+          console.error(`Error getting count for library "${lib.title}":`, libError.message);
+        }
+      }
 
       // Get accounts (users)
       let totalUsers = 0;
