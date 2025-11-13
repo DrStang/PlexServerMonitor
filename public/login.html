@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plex Server Monitor - Login</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-animation">
+        <div class="circle circle1"></div>
+        <div class="circle circle2"></div>
+        <div class="circle circle3"></div>
+    </div>
+
+    <div class="container">
+        <div class="glass-card login-card">
+            <div class="logo">
+                <h1>Plex Server Monitor</h1>
+                <p>Monitor your Plex server status and manage tickets</p>
+            </div>
+
+            <div class="tab-container">
+                <button class="tab-button active" onclick="showTab('standard')">Standard Login</button>
+                <button class="tab-button" onclick="showTab('plex')">Plex Login</button>
+                <button class="tab-button" onclick="showTab('register')">Register</button>
+            </div>
+
+            <!-- Standard Login Form -->
+            <form id="standard-login" class="auth-form active">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+
+            <!-- Plex Login Form -->
+            <form id="plex-login" class="auth-form">
+                <div class="plex-info">
+                    <p>Login using your Plex account credentials</p>
+                </div>
+                <div class="form-group">
+                    <label for="plex-username">Plex Username/Email</label>
+                    <input type="text" id="plex-username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="plex-password">Plex Password</label>
+                    <input type="password" id="plex-password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-plex">Login with Plex</button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form">
+                <div class="form-group">
+                    <label for="reg-username">Username</label>
+                    <input type="text" id="reg-username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email</label>
+                    <input type="email" id="reg-email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Password</label>
+                    <input type="password" id="reg-password" name="password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password-confirm">Confirm Password</label>
+                    <input type="password" id="reg-password-confirm" name="password-confirm" required minlength="6">
+                </div>
+                <button type="submit" class="btn btn-primary">Register</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="login.js"></script>
+</body>
+</html>

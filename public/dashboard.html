@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plex Server Monitor - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-animation">
+        <div class="circle circle1"></div>
+        <div class="circle circle2"></div>
+        <div class="circle circle3"></div>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>Server Status Dashboard</h1>
+            <div class="user-info">
+                <span class="user-name">Welcome, <strong id="username"></strong></span>
+                <button class="btn-secondary" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <!-- Server Status -->
+        <div class="status-grid">
+            <div class="glass-card status-card">
+                <h3>Server Status</h3>
+                <div class="status-value">
+                    <span class="status-indicator" id="status-indicator"></span>
+                    <span id="status-text">Checking...</span>
+                </div>
+            </div>
+
+            <div class="glass-card status-card">
+                <h3>Active Streams</h3>
+                <div class="status-value" id="active-streams">0</div>
+            </div>
+
+            <div class="glass-card status-card">
+                <h3>Total Media</h3>
+                <div class="status-value" id="total-media">0</div>
+            </div>
+
+            <div class="glass-card status-card">
+                <h3>Response Time</h3>
+                <div class="status-value" id="response-time">-</div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <div style="text-align: center; padding: 10px;">
+                <small style="color: var(--text-secondary);">
+                    Last checked: <span id="last-checked">-</span>
+                    <span style="margin: 0 10px;">•</span>
+                    Updates every 30 seconds
+                </small>
+            </div>
+        </div>
+
+        <!-- Tickets Section -->
+        <div class="tickets-section">
+            <div class="glass-card">
+                <div class="section-header">
+                    <h2>My Tickets</h2>
+                    <button class="btn btn-small btn-primary" onclick="openTicketModal()">Open New Ticket</button>
+                </div>
+
+                <div class="ticket-list" id="ticket-list">
+                    <p style="text-align: center; color: var(--text-secondary); padding: 20px;">
+                        No tickets yet
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Ticket Modal -->
+    <div id="ticket-modal" class="modal">
+        <div class="glass-card modal-content">
+            <div class="modal-header">
+                <h2>Open New Ticket</h2>
+                <button class="close-btn" onclick="closeTicketModal()">&times;</button>
+            </div>
+
+            <form id="ticket-form">
+                <div class="form-group">
+                    <label for="ticket-title">Title</label>
+                    <input type="text" id="ticket-title" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ticket-description">Description</label>
+                    <textarea id="ticket-description" required rows="5"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="ticket-priority">Priority</label>
+                    <select id="ticket-priority">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Submit Ticket</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
