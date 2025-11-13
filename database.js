@@ -162,6 +162,46 @@ class Database {
     });
   }
 
+  updateUserEmail(username, email) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'UPDATE users SET email = ? WHERE username = ?',
+        [email, username],
+        (err) => {
+          if (err) return reject(err);
+          resolve();
+        }
+      );
+    });
+  }
+
+  upsertPlexUser(username, email) {
+    return new Promise((resolve, reject) => {
+      // First check if user exists
+      this.db.get('SELECT id FROM users WHERE username = ?', [username], (err, row) => {
+        if (err) return reject(err);
+
+        if (row) {
+          // Update existing user
+          this.db.run(
+            'UPDATE users SET email = ? WHERE username = ?',
+            [email, username],
+            (err) => {
+              if (err) return reject(err);
+              resolve({ id: row.id, updated: true });
+            }
+          );
+        } else {
+          // Create new user with random password
+          const randomPassword = Math.random().toString(36).slice(-12);
+          this.createUser(username, email || `${username}@noemail.local`, randomPassword, false)
+            .then(id => resolve({ id, created: true }))
+            .catch(reject);
+        }
+      });
+    });
+  }
+
   // Ticket methods
   createTicket(userId, title, description, priority = 'medium') {
     return new Promise((resolve, reject) => {

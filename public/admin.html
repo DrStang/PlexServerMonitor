@@ -84,6 +84,9 @@
                 <button class="btn btn-primary" onclick="openEmailModal()" style="width: 100%; margin-bottom: 10px;">
                     Send Mass Email
                 </button>
+                <button class="btn btn-primary" onclick="openImportEmailsModal()" style="width: 100%; margin-bottom: 10px;">
+                    Import User Emails
+                </button>
                 <button class="btn-secondary" onclick="refreshData()" style="width: 100%;">
                     Refresh All Data
                 </button>
@@ -150,6 +153,41 @@
         </div>
     </div>
 
+    <!-- Import Emails Modal -->
+    <div id="import-emails-modal" class="modal">
+        <div class="glass-card modal-content">
+            <div class="modal-header">
+                <h2>Import User Emails</h2>
+                <button class="close-btn" onclick="closeImportEmailsModal()">&times;</button>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 10px;">
+                    Paste CSV data (username,email) or JSON array. One user per line for CSV.
+                </p>
+                <div style="background: rgba(255, 152, 0, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                    <strong style="font-size: 13px;">CSV Format Example:</strong>
+                    <pre style="margin: 5px 0; font-size: 12px; color: var(--text-secondary);">john@example.com
+jane@example.com</pre>
+                </div>
+            </div>
+
+            <form id="import-emails-form">
+                <div class="form-group">
+                    <label for="import-data">Email List (one per line)</label>
+                    <textarea id="import-data" placeholder="john@example.com&#10;jane@example.com&#10;bob@example.com" required rows="10"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Import Emails</button>
+            </form>
+
+            <div id="import-results" style="margin-top: 20px; display: none;">
+                <h3 style="font-size: 16px; margin-bottom: 10px;">Import Results</h3>
+                <div id="import-results-content"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Update Ticket Modal -->
     <div id="update-ticket-modal" class="modal">
         <div class="glass-card modal-content">
@@ -181,6 +219,6 @@
 
     <div id="toast" class="toast"></div>
 
-    <script src="admin.js?v=3"></script>
+    <script src="admin.js?v=4"></script>
 </body>
 </html>

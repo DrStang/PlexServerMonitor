@@ -324,6 +324,52 @@ app.get('/api/admin/plex-users', requireAdmin, async (req, res) => {
   }
 });
 
+// Import user emails in bulk (admin only)
+app.post('/api/admin/import-emails', requireAdmin, async (req, res) => {
+  try {
+    const { users } = req.body; // Array of { username, email }
+
+    if (!users || !Array.isArray(users)) {
+      return res.status(400).json({ error: 'Users array required' });
+    }
+
+    const results = {
+      created: [],
+      updated: [],
+      errors: []
+    };
+
+    for (const user of users) {
+      if (!user.username) {
+        results.errors.push({ user, error: 'Username required' });
+        continue;
+      }
+
+      try {
+        const result = await database.upsertPlexUser(user.username, user.email);
+        if (result.created) {
+          results.created.push(user.username);
+        } else if (result.updated) {
+          results.updated.push(user.username);
+        }
+      } catch (error) {
+        results.errors.push({ user: user.username, error: error.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      created: results.created.length,
+      updated: results.updated.length,
+      errors: results.errors.length,
+      details: results
+    });
+  } catch (error) {
+    console.error('Import emails error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Send mass email (admin only)
 app.post('/api/admin/email/mass', requireAdmin, async (req, res) => {
   try {

@@ -373,6 +373,95 @@ function closeEmailModal() {
     updateSelectedCount();
 }
 
+// Open import emails modal
+function openImportEmailsModal() {
+    document.getElementById('import-emails-modal').classList.add('active');
+    document.getElementById('import-results').style.display = 'none';
+}
+
+// Close import emails modal
+function closeImportEmailsModal() {
+    document.getElementById('import-emails-modal').classList.remove('active');
+    document.getElementById('import-emails-form').reset();
+    document.getElementById('import-results').style.display = 'none';
+}
+
+// Handle import emails form submission
+document.getElementById('import-emails-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const importData = document.getElementById('import-data').value.trim();
+    const users = [];
+
+    // Parse the input - expecting one email per line
+    const lines = importData.split('\n').map(line => line.trim()).filter(line => line);
+
+    for (const line of lines) {
+        // Simple email validation
+        if (line.includes('@')) {
+            // Extract username from email (everything before @)
+            const username = line.split('@')[0];
+            users.push({ username, email: line });
+        }
+    }
+
+    if (users.length === 0) {
+        showToast('No valid emails found', 'error');
+        return;
+    }
+
+    if (!confirm(`Import ${users.length} email address(es)?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/admin/import-emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ users })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            const resultsDiv = document.getElementById('import-results');
+            const resultsContent = document.getElementById('import-results-content');
+
+            let html = `
+                <div style="padding: 15px; background: rgba(76, 175, 80, 0.1); border-radius: 8px; margin-bottom: 10px;">
+                    <strong style="color: var(--success);">✓ Created: ${data.created}</strong>
+                </div>
+                <div style="padding: 15px; background: rgba(33, 150, 243, 0.1); border-radius: 8px; margin-bottom: 10px;">
+                    <strong style="color: #2196f3;">↻ Updated: ${data.updated}</strong>
+                </div>
+            `;
+
+            if (data.errors > 0) {
+                html += `
+                    <div style="padding: 15px; background: rgba(244, 67, 54, 0.1); border-radius: 8px;">
+                        <strong style="color: var(--error);">✗ Errors: ${data.errors}</strong>
+                        <div style="margin-top: 10px; font-size: 12px;">
+                            ${data.details.errors.map(e => `<div>${e.user}: ${e.error}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultsContent.innerHTML = html;
+            resultsDiv.style.display = 'block';
+
+            showToast(`Import complete: ${data.created} created, ${data.updated} updated`, 'success');
+        } else {
+            showToast(data.error || 'Import failed', 'error');
+        }
+    } catch (error) {
+        console.error('Error importing emails:', error);
+        showToast('An error occurred while importing emails', 'error');
+    }
+});
+
 // Open update ticket modal
 function openUpdateTicketModal(ticketId, title, description, currentStatus) {
     document.getElementById('update-ticket-id').value = ticketId;
@@ -498,6 +587,12 @@ async function logout() {
 document.getElementById('email-modal').addEventListener('click', (e) => {
     if (e.target.id === 'email-modal') {
         closeEmailModal();
+    }
+});
+
+document.getElementById('import-emails-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'import-emails-modal') {
+        closeImportEmailsModal();
     }
 });
 
