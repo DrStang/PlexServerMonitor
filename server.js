@@ -313,11 +313,53 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
   }
 });
 
-// Get Plex users (admin only)
+// Get Plex users enriched with database emails (admin only)
 app.get('/api/admin/plex-users', requireAdmin, async (req, res) => {
   try {
+    // Get users from Plex
     const plexUsers = await plexService.getPlexUsers();
-    res.json(plexUsers);
+
+    // Get users from database (which may have imported emails)
+    const dbUsers = await database.getAllUsers();
+
+    // Create a map of database users by username
+    const dbUserMap = new Map();
+    const plexUsernameSet = new Set();
+
+    dbUsers.forEach(user => {
+      dbUserMap.set(user.username.toLowerCase(), user);
+    });
+
+    // Merge: Plex users with database emails
+    const mergedUsers = plexUsers.map(plexUser => {
+      plexUsernameSet.add(plexUser.username.toLowerCase());
+      const dbUser = dbUserMap.get(plexUser.username.toLowerCase());
+      return {
+        id: plexUser.id,
+        username: plexUser.username,
+        email: dbUser?.email || plexUser.email, // Prefer database email
+        isOwner: plexUser.isOwner,
+        source: 'plex'
+      };
+    });
+
+    // Add database-only users (imported emails that don't match Plex usernames)
+    dbUsers.forEach(dbUser => {
+      if (!plexUsernameSet.has(dbUser.username.toLowerCase()) && dbUser.email) {
+        mergedUsers.push({
+          id: dbUser.id,
+          username: dbUser.username,
+          email: dbUser.email,
+          isOwner: false,
+          source: 'database'
+        });
+      }
+    });
+
+    const usersWithEmails = mergedUsers.filter(u => u.email && u.email !== 'admin@plexmonitor.local');
+    console.log(`Merged ${mergedUsers.length} users: ${usersWithEmails.length} with emails (${plexUsers.length} from Plex, ${mergedUsers.length - plexUsers.length} from database only)`);
+
+    res.json(mergedUsers);
   } catch (error) {
     console.error('Get Plex users error:', error);
     res.status(500).json({ error: 'Internal server error' });
