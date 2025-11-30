@@ -128,6 +128,43 @@ class EmailService {
     return this.sendEmail(email, subject, html);
   }
 
+  async sendNewTicketNotification(adminEmail, ticketId, ticketData) {
+    const subject = `New Support Ticket #${ticketId} Created`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #e5a00d;">New Support Ticket</h2>
+        <p>A new support ticket has been submitted:</p>
+
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <p><strong>Ticket ID:</strong> #${ticketId}</p>
+          <p><strong>Title:</strong> ${ticketData.title}</p>
+          <p><strong>Priority:</strong> <span style="color: ${this.getPriorityColor(ticketData.priority)};">${ticketData.priority.toUpperCase()}</span></p>
+          <p><strong>Submitted by:</strong> ${ticketData.username} (${ticketData.email})</p>
+          <p><strong>Description:</strong></p>
+          <p style="white-space: pre-wrap;">${ticketData.description}</p>
+        </div>
+
+        <p>Please log into the Plex Server Monitor admin dashboard to review and respond.</p>
+
+        <hr style="border: 1px solid #ccc; margin: 20px 0;">
+        <p style="font-size: 12px; color: #666;">
+          This is an automated message from the Plex Server Monitor system.
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail(adminEmail, subject, html);
+  }
+
+  getPriorityColor(priority) {
+    const colors = {
+      low: '#4caf50',
+      medium: '#ff9800',
+      high: '#f44336'
+    };
+    return colors[priority] || '#666';
+  }
+
   isConfigured() {
     return this.transporter !== null;
   }
