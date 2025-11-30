@@ -72,6 +72,29 @@ class Database {
       )
     `);
 
+    // Ticket comments table
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ticket_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        comment TEXT NOT NULL,
+        is_admin_reply INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (ticket_id) REFERENCES tickets(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    // Create indexes for performance
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_server_status_checked_at ON server_status(checked_at DESC)');
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets(user_id)');
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)');
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at DESC)');
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_media_freshness_checked_at ON media_freshness(checked_at DESC)');
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_media_freshness_library ON media_freshness(library_name)');
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket_id ON ticket_comments(ticket_id)');
+
     // Create default admin user if not exists
     this.createDefaultAdmin();
   }
@@ -383,6 +406,80 @@ class Database {
             });
           }
           resolve(rows);
+        }
+      );
+    });
+  }
+
+  // Create ticket comment
+  createTicketComment(ticketId, userId, comment, isAdminReply = false) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'INSERT INTO ticket_comments (ticket_id, user_id, comment, is_admin_reply) VALUES (?, ?, ?, ?)',
+        [ticketId, userId, comment, isAdminReply ? 1 : 0],
+        function(err) {
+          if (err) return reject(err);
+          // Update ticket's updated_at timestamp
+          this.db.run(
+            'UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [ticketId]
+          );
+          resolve(this.lastID);
+        }.bind(this)
+      );
+    });
+  }
+
+  // Get comments for a ticket
+  getTicketComments(ticketId) {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT tc.*, u.username, u.is_admin
+         FROM ticket_comments tc
+         JOIN users u ON tc.user_id = u.id
+         WHERE tc.ticket_id = ?
+         ORDER BY tc.created_at ASC`,
+        [ticketId],
+        (err, rows) => {
+          if (err) return reject(err);
+          resolve(rows || []);
+        }
+      );
+    });
+  }
+
+  // Clean up old records (keep last 90 days)
+  cleanupOldRecords(daysToKeep = 90) {
+    return new Promise((resolve, reject) => {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+      const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+
+      // Clean up old server status records
+      this.db.run(
+        'DELETE FROM server_status WHERE checked_at < ?',
+        [cutoffDateStr],
+        (err) => {
+          if (err) {
+            console.error('Error cleaning up server_status:', err);
+            return reject(err);
+          }
+
+          // Clean up old media freshness records
+          this.db.run(
+            'DELETE FROM media_freshness WHERE checked_at < ?',
+            [cutoffDateStr],
+            function(err) {
+              if (err) {
+                console.error('Error cleaning up media_freshness:', err);
+                return reject(err);
+              }
+
+              const totalDeleted = this.changes;
+              console.log(`Cleanup complete: removed records older than ${daysToKeep} days (${totalDeleted} records)`);
+              resolve(totalDeleted);
+            }
+          );
         }
       );
     });

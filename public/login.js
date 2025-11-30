@@ -35,6 +35,7 @@ document.getElementById('standard-login').addEventListener('submit', async (e) =
 
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+    const remember = document.getElementById('remember-me').checked;
 
     try {
         const response = await fetch('/api/auth/login', {
@@ -42,7 +43,7 @@ document.getElementById('standard-login').addEventListener('submit', async (e) =
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ username, password, remember })
         });
 
         const data = await response.json();
@@ -71,6 +72,7 @@ document.getElementById('plex-login').addEventListener('submit', async (e) => {
 
     const username = document.getElementById('plex-username').value;
     const password = document.getElementById('plex-password').value;
+    const remember = document.getElementById('plex-remember-me').checked;
 
     try {
         const response = await fetch('/api/auth/plex', {
@@ -78,7 +80,7 @@ document.getElementById('plex-login').addEventListener('submit', async (e) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ username, password, remember })
         });
 
         const data = await response.json();
