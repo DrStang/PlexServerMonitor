@@ -369,10 +369,16 @@ class Database {
           if (rows) {
             rows.forEach(row => {
               if (row.checked_at) {
-                row.checked_at = row.checked_at.replace(' ', 'T') + 'Z';
+                // Only convert if not already in ISO format
+                if (!row.checked_at.endsWith('Z')) {
+                  row.checked_at = row.checked_at.replace(' ', 'T') + 'Z';
+                }
               }
               if (row.last_added_date) {
-                row.last_added_date = row.last_added_date.replace(' ', 'T') + 'Z';
+                // Only convert if not already in ISO format
+                if (!row.last_added_date.endsWith('Z')) {
+                  row.last_added_date = row.last_added_date.replace(' ', 'T') + 'Z';
+                }
               }
             });
           }
