@@ -253,6 +253,28 @@ app.post('/api/tickets', requireAuth, async (req, res) => {
       priority || 'medium'
     );
 
+    // Send email notification to admin
+    try {
+      const user = await database.getUserById(req.session.userId);
+      if (emailService.isConfigured()) {
+        await emailService.sendNewTicketNotification(
+          'dandolewski@gmail.com',
+          ticketId,
+          {
+            title,
+            description,
+            priority: priority || 'medium',
+            username: user.username,
+            email: user.email
+          }
+        );
+        console.log(`Email notification sent for ticket #${ticketId}`);
+      }
+    } catch (emailError) {
+      // Don't fail the ticket creation if email fails
+      console.error('Failed to send ticket notification email:', emailError);
+    }
+
     res.json({ success: true, ticketId });
   } catch (error) {
     console.error('Create ticket error:', error);

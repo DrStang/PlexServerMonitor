@@ -51,7 +51,7 @@ class EmailService {
     }
   }
 
-  async sendEmail(to, subject, html) {
+  async sendEmail(to, subject, html, text = null) {
     if (!this.transporter) {
       throw new Error('Email service not configured');
     }
@@ -60,10 +60,30 @@ class EmailService {
       from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to,
       subject,
-      html
+      html,
+      // Always include plain text version for better deliverability
+      text: text || this.stripHtml(html),
+      // Add headers to improve deliverability
+      headers: {
+        'X-Mailer': 'Plex Server Monitor',
+        'X-Priority': '3',
+        'Importance': 'Normal'
+      },
+      // Add list-unsubscribe header for mass emails compliance
+      list: process.env.EMAIL_UNSUBSCRIBE_URL ? {
+        unsubscribe: process.env.EMAIL_UNSUBSCRIBE_URL
+      } : undefined
     };
 
     return this.transporter.sendMail(mailOptions);
+  }
+
+  // Helper to strip HTML for plain text version
+  stripHtml(html) {
+    return html
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   async sendMassEmail(recipients, subject, html) {
@@ -76,10 +96,20 @@ class EmailService {
       failed: []
     };
 
-    for (const recipient of recipients) {
+    // Rate limiting: delay between emails to avoid spam filters
+    const delayMs = 1000; // 1 second between emails
+
+    for (let i = 0; i < recipients.length; i++) {
+      const recipient = recipients[i];
+
       try {
         await this.sendEmail(recipient.email, subject, html);
         results.success.push(recipient.email);
+
+        // Add delay between emails (except for last email)
+        if (i < recipients.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       } catch (error) {
         console.error(`Failed to send email to ${recipient.email}:`, error.message);
         results.failed.push({
@@ -126,6 +156,99 @@ class EmailService {
     `;
 
     return this.sendEmail(email, subject, html);
+  }
+
+  async sendNewTicketNotification(adminEmail, ticketId, ticketData) {
+    const subject = `New Support Ticket #${ticketId} Created`;
+
+    // HTML version
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 20px; background-color: #f4f4f4;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 5px;">
+          <h2 style="color: #e5a00d; margin-top: 0;">New Support Ticket</h2>
+          <p>A new support ticket has been submitted:</p>
+
+          <table style="width: 100%; background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;" cellpadding="10">
+            <tr>
+              <td><strong>Ticket ID:</strong></td>
+              <td>#${ticketId}</td>
+            </tr>
+            <tr>
+              <td><strong>Title:</strong></td>
+              <td>${this.escapeHtml(ticketData.title)}</td>
+            </tr>
+            <tr>
+              <td><strong>Priority:</strong></td>
+              <td><span style="color: ${this.getPriorityColor(ticketData.priority)};">${ticketData.priority.toUpperCase()}</span></td>
+            </tr>
+            <tr>
+              <td><strong>Submitted by:</strong></td>
+              <td>${this.escapeHtml(ticketData.username)} (${ticketData.email})</td>
+            </tr>
+            <tr>
+              <td style="vertical-align: top;"><strong>Description:</strong></td>
+              <td style="white-space: pre-wrap;">${this.escapeHtml(ticketData.description)}</td>
+            </tr>
+          </table>
+
+          <p>Please log into the Plex Server Monitor admin dashboard to review and respond.</p>
+
+          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
+          <p style="font-size: 12px; color: #666; margin-bottom: 0;">
+            This is an automated notification from the Plex Server Monitor system.<br>
+            If you did not expect this email, please contact your system administrator.
+          </p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Plain text version for better deliverability
+    const text = `
+New Support Ticket #${ticketId}
+
+Ticket ID: #${ticketId}
+Title: ${ticketData.title}
+Priority: ${ticketData.priority.toUpperCase()}
+Submitted by: ${ticketData.username} (${ticketData.email})
+
+Description:
+${ticketData.description}
+
+Please log into the Plex Server Monitor admin dashboard to review and respond.
+
+---
+This is an automated notification from the Plex Server Monitor system.
+    `.trim();
+
+    return this.sendEmail(adminEmail, subject, html, text);
+  }
+
+  // Escape HTML to prevent XSS and improve content quality
+  escapeHtml(text) {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+  }
+
+  getPriorityColor(priority) {
+    const colors = {
+      low: '#4caf50',
+      medium: '#ff9800',
+      high: '#f44336'
+    };
+    return colors[priority] || '#666';
   }
 
   isConfigured() {

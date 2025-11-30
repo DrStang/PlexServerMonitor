@@ -144,6 +144,14 @@ class Database {
     return new Promise((resolve, reject) => {
       this.db.all('SELECT id, username, email, is_admin, created_at FROM users', (err, rows) => {
         if (err) return reject(err);
+        // Fix timestamps for all rows
+        if (rows) {
+          rows.forEach(row => {
+            if (row.created_at) {
+              row.created_at = row.created_at.replace(' ', 'T') + 'Z';
+            }
+          });
+        }
         resolve(rows);
       });
     });
@@ -223,6 +231,17 @@ class Database {
         [userId],
         (err, rows) => {
           if (err) return reject(err);
+          // Fix timestamps for all rows
+          if (rows) {
+            rows.forEach(row => {
+              if (row.created_at) {
+                row.created_at = row.created_at.replace(' ', 'T') + 'Z';
+              }
+              if (row.updated_at) {
+                row.updated_at = row.updated_at.replace(' ', 'T') + 'Z';
+              }
+            });
+          }
           resolve(rows);
         }
       );
@@ -238,6 +257,17 @@ class Database {
          ORDER BY t.created_at DESC`,
         (err, rows) => {
           if (err) return reject(err);
+          // Fix timestamps for all rows
+          if (rows) {
+            rows.forEach(row => {
+              if (row.created_at) {
+                row.created_at = row.created_at.replace(' ', 'T') + 'Z';
+              }
+              if (row.updated_at) {
+                row.updated_at = row.updated_at.replace(' ', 'T') + 'Z';
+              }
+            });
+          }
           resolve(rows);
         }
       );
@@ -279,6 +309,10 @@ class Database {
         'SELECT * FROM server_status ORDER BY checked_at DESC LIMIT 1',
         (err, row) => {
           if (err) return reject(err);
+          // SQLite returns timestamps without timezone info, so we need to append 'Z' to indicate UTC
+          if (row && row.checked_at) {
+            row.checked_at = row.checked_at.replace(' ', 'T') + 'Z';
+          }
           resolve(row);
         }
       );
@@ -292,6 +326,14 @@ class Database {
         [limit],
         (err, rows) => {
           if (err) return reject(err);
+          // Fix timestamps for all rows
+          if (rows) {
+            rows.forEach(row => {
+              if (row.checked_at) {
+                row.checked_at = row.checked_at.replace(' ', 'T') + 'Z';
+              }
+            });
+          }
           resolve(rows);
         }
       );
@@ -323,6 +365,17 @@ class Database {
         'SELECT * FROM media_freshness ORDER BY checked_at DESC',
         (err, rows) => {
           if (err) return reject(err);
+          // Fix timestamps for all rows
+          if (rows) {
+            rows.forEach(row => {
+              if (row.checked_at) {
+                row.checked_at = row.checked_at.replace(' ', 'T') + 'Z';
+              }
+              if (row.last_added_date) {
+                row.last_added_date = row.last_added_date.replace(' ', 'T') + 'Z';
+              }
+            });
+          }
           resolve(rows);
         }
       );
