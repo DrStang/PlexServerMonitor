@@ -370,6 +370,7 @@ function closeEmailModal() {
     document.getElementById('email-modal').classList.remove('active');
     document.getElementById('email-form').reset();
     document.getElementById('select-all-users').checked = false;
+    document.getElementById('manual-emails').value = '';
     updateSelectedCount();
 }
 
@@ -495,8 +496,25 @@ document.getElementById('email-form').addEventListener('submit', async (e) => {
         }
     }).filter(r => r !== null);
 
+    // Get manual email addresses
+    const manualEmailsText = document.getElementById('manual-emails').value.trim();
+    if (manualEmailsText) {
+        // Split by commas or newlines, clean up, and validate
+        const manualEmails = manualEmailsText
+            .split(/[,\n]+/)
+            .map(email => email.trim())
+            .filter(email => email && email.includes('@'));
+
+        // Add manual emails to recipients
+        manualEmails.forEach(email => {
+            // Extract username from email (before @)
+            const username = email.split('@')[0];
+            recipients.push({ email, username });
+        });
+    }
+
     if (recipients.length === 0) {
-        showToast('Please select at least one user', 'error');
+        showToast('Please select at least one user or enter manual email addresses', 'error');
         return;
     }
 
