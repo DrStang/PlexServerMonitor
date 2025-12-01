@@ -6,10 +6,12 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const WebSocket = require('ws');
 const http = require('http');
+const rateLimit = require('express-rate-limit');
 
 const database = require('./database');
 const PlexService = require('./plexService');
 const emailService = require('./emailService');
+const logger = require('./logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -55,12 +57,29 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
+// Rate limiting
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs
+  message: 'Too many authentication attempts, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // ==================== AUTH ROUTES ====================
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, remember } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
@@ -80,6 +99,11 @@ app.post('/api/auth/login', async (req, res) => {
     req.session.username = user.username;
     req.session.isAdmin = user.is_admin === 1;
 
+    // Extend session if "remember me" is checked
+    if (remember) {
+      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+    }
+
     res.json({
       success: true,
       user: {
@@ -90,15 +114,15 @@ app.post('/api/auth/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Plex OAuth login
-app.post('/api/auth/plex', async (req, res) => {
+app.post('/api/auth/plex', authLimiter, async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, remember } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Plex username and password required' });
@@ -131,6 +155,11 @@ app.post('/api/auth/plex', async (req, res) => {
     req.session.username = user.username;
     req.session.isAdmin = user.is_admin === 1;
 
+    // Extend session if "remember me" is checked
+    if (remember) {
+      req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+    }
+
     res.json({
       success: true,
       user: {
@@ -141,13 +170,13 @@ app.post('/api/auth/plex', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Plex login error:', error);
+    logger.error('Plex login error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Register
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
@@ -165,7 +194,7 @@ app.post('/api/auth/register', async (req, res) => {
     if (error.message.includes('UNIQUE constraint failed')) {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
-    console.error('Registration error:', error);
+    logger.error('Registration error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -256,9 +285,10 @@ app.post('/api/tickets', requireAuth, async (req, res) => {
     // Send email notification to admin
     try {
       const user = await database.getUserById(req.session.userId);
-      if (emailService.isConfigured()) {
+      const adminEmail = process.env.ADMIN_EMAIL;
+      if (emailService.isConfigured() && adminEmail) {
         await emailService.sendNewTicketNotification(
-          'dandolewski@gmail.com',
+          adminEmail,
           ticketId,
           {
             title,
@@ -268,11 +298,13 @@ app.post('/api/tickets', requireAuth, async (req, res) => {
             email: user.email
           }
         );
-        console.log(`Email notification sent for ticket #${ticketId}`);
+        logger.info(`Email notification sent for ticket #${ticketId} to ${adminEmail}`);
+      } else if (!adminEmail) {
+        logger.warn('ADMIN_EMAIL not configured, skipping ticket notification');
       }
     } catch (emailError) {
       // Don't fail the ticket creation if email fails
-      console.error('Failed to send ticket notification email:', emailError);
+      logger.error('Failed to send ticket notification email:', { error: emailError.message });
     }
 
     res.json({ success: true, ticketId });
@@ -318,6 +350,43 @@ app.put('/api/tickets/:id/status', requireAdmin, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Update ticket status error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get ticket comments
+app.get('/api/tickets/:id/comments', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const comments = await database.getTicketComments(id);
+    res.json(comments);
+  } catch (error) {
+    logger.error('Get ticket comments error:', { error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add comment to ticket
+app.post('/api/tickets/:id/comments', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+
+    if (!comment || !comment.trim()) {
+      return res.status(400).json({ error: 'Comment required' });
+    }
+
+    const isAdminReply = req.session.isAdmin === true;
+    const commentId = await database.createTicketComment(
+      id,
+      req.session.userId,
+      comment,
+      isAdminReply
+    );
+
+    res.json({ success: true, commentId });
+  } catch (error) {
+    logger.error('Add ticket comment error:', { error: error.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -478,7 +547,7 @@ app.post('/api/admin/email/mass', requireAdmin, async (req, res) => {
 let statusCheckInterval;
 
 wss.on('connection', (ws) => {
-  console.log('WebSocket client connected');
+  logger.info('WebSocket client connected');
 
   // Send initial status
   database.getLatestServerStatus().then(status => {
@@ -488,7 +557,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('WebSocket client disconnected');
+    logger.info('WebSocket client disconnected');
   });
 });
 
@@ -542,13 +611,24 @@ async function updateMediaFreshness() {
   }
 }
 
+// Database cleanup job
+async function cleanupOldData() {
+  try {
+    await database.cleanupOldRecords(90); // Keep 90 days of data
+  } catch (error) {
+    console.error('Error during database cleanup:', error);
+  }
+}
+
 // Start background tasks
 statusCheckInterval = setInterval(checkServerStatus, 30000); // Every 30 seconds
 setInterval(updateMediaFreshness, 5 * 60 * 1000); // Every 5 minutes
+setInterval(cleanupOldData, 24 * 60 * 60 * 1000); // Every 24 hours
 
 // Initial checks
 checkServerStatus();
 updateMediaFreshness();
+cleanupOldData(); // Run cleanup on startup
 
 // ==================== SERVE FRONTEND ====================
 
@@ -567,8 +647,8 @@ app.get('/admin', (req, res) => {
 // ==================== START SERVER ====================
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Access the application at http://localhost:${PORT}`);
+  logger.info(`Server running on port ${PORT}`);
+  logger.info(`Access the application at http://localhost:${PORT}`);
 });
 
 // Cleanup on exit

@@ -30,11 +30,15 @@
             <form id="standard-login" class="auth-form active">
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input type="text" id="username" name="username" required>
+                    <input type="text" id="username" name="username" required autofocus>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="remember-me" name="remember" style="width: auto; margin: 0;">
+                    <label for="remember-me" style="margin: 0; cursor: pointer;">Remember me for 30 days</label>
                 </div>
                 <button type="submit" class="btn btn-primary">Login</button>
             </form>
@@ -51,6 +55,10 @@
                 <div class="form-group">
                     <label for="plex-password">Plex Password</label>
                     <input type="password" id="plex-password" name="password" required>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="plex-remember-me" name="remember" style="width: auto; margin: 0;">
+                    <label for="plex-remember-me" style="margin: 0; cursor: pointer;">Remember me for 30 days</label>
                 </div>
                 <button type="submit" class="btn btn-plex">Login with Plex</button>
             </form>
